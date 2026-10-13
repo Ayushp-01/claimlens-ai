@@ -229,6 +229,8 @@ export interface InvestigatorClaimDetail extends Claim {
 }
 
 export interface ClaimSubmitData {
+  patientName?: string;
+  patient_name?: string;
   policyId?: string;
   policyNumber: string;
   memberReference: string;

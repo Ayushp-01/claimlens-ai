@@ -17,6 +17,7 @@ import {
   ExternalLink,
   ShieldCheck,
   Search,
+  User as UserIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +30,7 @@ const navItems = [
   { name: 'Executive Analytics', href: '/investigator/analytics', icon: BarChart3 },
   { name: 'My Active Cases', href: '/investigator/cases', icon: Briefcase },
   { name: 'System Audit Logs', href: '/investigator/audit-logs', icon: History },
+  { name: 'Investigator Profile', href: '/investigator/profile', icon: UserIcon },
 ];
 
 export default function InvestigatorLayout({ children }: { children: React.ReactNode }) {
@@ -105,10 +107,10 @@ export default function InvestigatorLayout({ children }: { children: React.React
           <div className="p-4 border-t border-navy-900 bg-navy-900/40">
             <div className="flex items-center gap-3 mb-3">
               <div className="h-9 w-9 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-sm">
-                {user?.name ? user.name[0] : 'R'}
+                {user?.name ? user.name[0].toUpperCase() : (user?.email ? user.email[0].toUpperCase() : 'I')}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{user?.name || 'Dr. Rajesh Kumar'}</p>
+                <p className="text-sm font-semibold text-white truncate">{user?.name || user?.email || 'Investigator'}</p>
                 <div className="flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   <span className="text-2xs text-teal-300 font-mono capitalize">

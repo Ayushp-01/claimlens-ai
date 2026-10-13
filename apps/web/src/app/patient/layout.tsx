@@ -97,11 +97,11 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           <div className="p-4 border-t border-slate-100 bg-slate-50/50">
             <div className="flex items-center gap-3 mb-3">
               <div className="h-9 w-9 rounded-full bg-navy-100 text-navy-800 flex items-center justify-center font-bold text-sm">
-                {user?.name ? user.name[0] : 'P'}
+                {user?.name ? user.name[0].toUpperCase() : (user?.email ? user.email[0].toUpperCase() : 'P')}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-900 truncate">{user?.name || 'Priya Sharma'}</p>
-                <p className="text-xs text-slate-500 truncate">{user?.email || 'patient@claimlens.ai'}</p>
+                <p className="text-sm font-semibold text-slate-900 truncate">{user?.name || user?.email || 'Patient'}</p>
+                <p className="text-xs text-slate-500 truncate">{user?.email || ''}</p>
               </div>
             </div>
             <Button
@@ -132,7 +132,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             </div>
 
             <div className="hidden lg:block text-sm font-medium text-slate-500">
-              Welcome back, <span className="text-slate-900 font-semibold">{user?.name || 'Priya'}</span>
+              Welcome back, <span className="text-slate-900 font-semibold">{user?.name || user?.email || 'Patient'}</span>
             </div>
 
             <div className="flex items-center gap-3">

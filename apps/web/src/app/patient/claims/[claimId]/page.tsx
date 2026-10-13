@@ -332,6 +332,10 @@ export default function PatientClaimDetailPage() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between py-1 border-b border-slate-100">
+              <span className="text-slate-500">Patient / Claimant</span>
+              <span className="font-semibold text-slate-900">{claim.patientName}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-100">
               <span className="text-slate-500">Policy Number</span>
               <span className="font-mono font-semibold text-slate-900">{claim.policyNumber}</span>
             </div>

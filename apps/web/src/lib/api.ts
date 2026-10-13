@@ -77,14 +77,14 @@ apiClient.interceptors.response.use(
   }
 );
 
-// Fallback helper to allow flawless demo operation if API server is not up
+// Fallback helper to allow offline demo operation if API server is not running
 async function executeApiCall<T>(call: () => Promise<{ data: T }>, fallback: () => T): Promise<T> {
   try {
     const res = await call();
     return res.data;
   } catch (err: any) {
-    if (IS_DEMO_MODE || !err.response || err.code === 'ECONNREFUSED' || err.code === 'ERR_NETWORK') {
-      console.warn('API call failed or demo mode active, serving fallback data for demo:', err.message);
+    if (!err.response && (err.code === 'ECONNREFUSED' || err.code === 'ERR_NETWORK' || err.message?.includes('Network Error'))) {
+      console.warn('API server unreachable, serving fallback data for offline mode:', err.message);
       return fallback();
     }
     throw err;
@@ -96,18 +96,29 @@ export const authAPI = {
     return executeApiCall(
       async () => {
         const res = await apiClient.post('/auth/login', { username_or_email: email, password });
-        // Map backend response (full_name) to frontend type (name)
-        if (res.data?.user?.full_name && !res.data.user.name) {
-          res.data.user.name = res.data.user.full_name;
-        }
-        return res;
+        const u = res.data?.user || {};
+        const mappedUser: User = {
+          id: u.id,
+          name: u.full_name || u.name || (email.includes('investigator') ? 'Vikram Rathore' : (email.includes('@') ? email.split('@')[0] : 'Patient User')),
+          email: u.email || email,
+          role: u.role || (email.includes('admin') ? 'admin' : email.includes('investigator') ? 'investigator' : 'patient'),
+          phone: u.phone,
+          dateOfBirth: u.date_of_birth || u.dateOfBirth,
+          address: u.address,
+        };
+        return {
+          data: {
+            access_token: res.data.access_token,
+            user: mappedUser,
+          },
+        };
       },
       () => {
         const isInvestigator = email.includes('investigator') || email.includes('admin');
         const role = email.includes('admin') ? 'admin' : isInvestigator ? 'investigator' : 'patient';
         const user: User = {
           id: isInvestigator ? 'usr-inv-01' : 'usr-pat-01',
-          name: isInvestigator ? 'Vikram Rathore' : 'Aarav Sharma',
+          name: isInvestigator ? 'Vikram Rathore' : 'Priya Sharma',
           email,
           role,
           phone: '+91 98765 43210',
@@ -119,10 +130,23 @@ export const authAPI = {
     );
   },
 
-
   async register(data: RegisterData): Promise<User> {
     return executeApiCall(
-      () => apiClient.post('/auth/register', data),
+      async () => {
+        const res = await apiClient.post('/auth/register', data);
+        const u = res.data;
+        return {
+          data: {
+            id: u.id,
+            name: u.full_name || data.name,
+            email: u.email || data.email,
+            role: u.role || 'patient',
+            phone: data.phone,
+            dateOfBirth: data.dateOfBirth,
+            address: data.address,
+          },
+        };
+      },
       () => ({
         id: 'usr-' + Date.now(),
         name: data.name,
@@ -136,15 +160,46 @@ export const authAPI = {
   },
 
   async me(): Promise<User> {
-    return executeApiCall(
-      () => apiClient.get('/auth/me'),
+    return executeApiCall<User>(
+      async () => {
+        const res = await apiClient.get('/auth/me');
+        const u = res.data;
+        const mappedUser: User = {
+          id: u.id,
+          name: u.full_name || u.name,
+          email: u.email,
+          role: u.role,
+          phone: u.phone,
+          dateOfBirth: u.date_of_birth || u.dateOfBirth,
+          address: u.address,
+          createdAt: u.created_at || u.createdAt,
+        };
+        return { data: mappedUser };
+      },
       () => mockUserProfile
     );
   },
 
   async updateProfile(data: Partial<User>): Promise<User> {
-    return executeApiCall(
-      () => apiClient.put('/auth/profile', data),
+    return executeApiCall<User>(
+      async () => {
+        const res = await apiClient.put('/auth/me', {
+          full_name: data.name,
+          email: data.email,
+        });
+        const u = res.data;
+        const mappedUser: User = {
+          id: u.id,
+          name: u.full_name || u.name || data.name || '',
+          email: u.email || data.email || '',
+          role: u.role,
+          phone: u.phone || data.phone,
+          dateOfBirth: u.date_of_birth || data.dateOfBirth,
+          address: u.address || data.address,
+          createdAt: u.created_at || u.createdAt,
+        };
+        return { data: mappedUser };
+      },
       () => ({ ...mockUserProfile, ...data })
     );
   },
@@ -292,14 +347,62 @@ export function mapBackendInvestigatorClaim(c: any): InvestigatorClaimDetail {
 export const patientAPI = {
   async getDashboard(): Promise<PatientDashboard> {
     return executeApiCall(
-      () => apiClient.get('/patient/dashboard'),
+      async () => {
+        const res = await apiClient.get('/patient/dashboard');
+        const d = res.data || {};
+        const recentClaims: Claim[] = (d.recent_claims || []).map((c: any) => mapBackendClaim(c));
+        return {
+          data: {
+            totalClaims: Number(d.total_claims ?? 0),
+            awaitingProcessing: Number(d.active_claims ?? 0),
+            underReview: Number(d.active_claims ?? 0),
+            approved: Number(d.approved_claims ?? 0),
+            settled: Number(d.settled_claims ?? 0),
+            rejected: Number(d.rejected_claims ?? 0),
+            totalClaimedAmount: Number(d.total_claimed_amount ?? 0),
+            totalApprovedAmount: Number(d.total_approved_amount ?? 0),
+            totalSettledAmount: Number(d.total_settled_amount ?? 0),
+            recentClaims,
+          },
+        };
+      },
       () => mockPatientDashboard
     );
   },
 
   async getClaims(params?: PaginationParams): Promise<PaginatedResponse<Claim>> {
     return executeApiCall(
-      () => apiClient.get('/patient/claims', { params }),
+      async () => {
+        const p = params?.page || 1;
+        const lim = params?.limit || 10;
+        const res = await apiClient.get('/patient/claims', {
+          params: {
+            page: p,
+            page_size: lim,
+            status: params?.status && params.status !== 'all' ? params.status : undefined,
+          },
+        });
+        const rawItems = res.data?.items || (Array.isArray(res.data) ? res.data : []);
+        let items: Claim[] = rawItems.map((c: any) => mapBackendClaim(c));
+        if (params?.search) {
+          const q = params.search.toLowerCase();
+          items = items.filter(
+            (c) =>
+              c.referenceNumber.toLowerCase().includes(q) ||
+              c.providerName.toLowerCase().includes(q) ||
+              c.invoiceNumber.toLowerCase().includes(q)
+          );
+        }
+        return {
+          data: {
+            items,
+            total: Number(res.data?.total ?? items.length),
+            page: Number(res.data?.page ?? p),
+            limit: Number(res.data?.page_size ?? lim),
+            totalPages: Number(res.data?.total_pages ?? (Math.ceil(items.length / lim) || 1)),
+          },
+        };
+      },
       () => {
         let items = [...mockClaims];
         if (params?.search) {
@@ -343,6 +446,8 @@ export const patientAPI = {
     return executeApiCall(
       async () => {
         const body: any = {
+          patient_name: data.patientName || data.patient_name,
+          patientName: data.patientName || data.patient_name,
           policy_id: data.policyId,
           policyId: data.policyId,
           policy_number: data.policyNumber,
@@ -376,7 +481,7 @@ export const patientAPI = {
           id: c.id,
           referenceNumber: c.claim_reference || c.referenceNumber || `CLM-${Date.now()}`,
           patientId: c.patient_id || 'usr-pat-01',
-          patientName: c.patient_name || 'Patient',
+          patientName: c.patient_name || data.patientName || data.patient_name || 'Patient',
           policyNumber: c.policy?.policy_number || data.policyNumber,
           memberReference: c.policy?.member_reference || data.memberReference,
           providerName: c.provider?.name || data.providerName,
@@ -436,7 +541,7 @@ export const patientAPI = {
           id: 'clm-' + Math.floor(1000 + Math.random() * 9000),
           referenceNumber: `CLM-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
           patientId: 'usr-pat-01',
-          patientName: 'Priya Sharma',
+          patientName: data.patientName || data.patient_name || 'Patient',
           policyNumber: data.policyNumber,
           memberReference: data.memberReference,
           providerName: data.providerName,
@@ -559,17 +664,17 @@ export const patientAPI = {
         ]);
         const p = profileRes.data || {};
         const userObj = p.user || {};
-        const resolvedName = p.name || p.full_name || userObj.full_name || userObj.name || 'Aarav Sharma';
-        const resolvedEmail = p.email || userObj.email || 'patient1@demo.claimlens.ai';
+        const resolvedName = p.name || p.full_name || userObj.full_name || userObj.name || '';
+        const resolvedEmail = p.email || userObj.email || '';
         return {
           data: {
-            id: p.id || userObj.id || 'usr-pat-01',
+            id: p.id || userObj.id || '',
             name: resolvedName,
             email: resolvedEmail,
             role: 'patient' as UserRole,
-            phone: p.phone || userObj.phone || '+91 98201 12233',
-            dateOfBirth: p.date_of_birth || p.dateOfBirth || '1988-06-15',
-            address: p.address || userObj.address || 'Mumbai, Maharashtra',
+            phone: p.phone || userObj.phone || '',
+            dateOfBirth: p.date_of_birth || p.dateOfBirth || '',
+            address: p.address || userObj.address || '',
             policies,
           },
         };
@@ -594,15 +699,16 @@ export const patientAPI = {
         const res = await apiClient.put('/patient/profile', body);
         const p = res.data || {};
         const userObj = p.user || {};
-        const updatedName = data.name || p.name || p.full_name || userObj.full_name || 'Aarav Sharma';
+        const updatedName = data.name || p.name || p.full_name || userObj.full_name || '';
+        const updatedEmail = p.email || userObj.email || data.email || '';
         const updatedPhone = data.phone || p.phone || userObj.phone;
         const updatedAddress = data.address || p.address || userObj.address;
         const updatedDob = data.dateOfBirth || p.date_of_birth;
 
         const updatedProfile: PatientProfile = {
-          id: p.id || userObj.id || 'usr-pat-01',
+          id: p.id || userObj.id || '',
           name: updatedName,
-          email: p.email || userObj.email || 'patient1@demo.claimlens.ai',
+          email: updatedEmail,
           role: 'patient',
           phone: updatedPhone,
           dateOfBirth: updatedDob,

@@ -162,6 +162,7 @@ def list_investigator_claims(
             or_(
                 Claim.claim_reference.ilike(search_pattern),
                 Claim.invoice_number.ilike(search_pattern),
+                Claim.patient_name.ilike(search_pattern),
                 User.full_name.ilike(search_pattern),
                 Provider.name.ilike(search_pattern),
             )
@@ -194,12 +195,16 @@ def list_investigator_claims(
             claim_reference=c.claim_reference,
             patient_id=c.patient_id,
             patient_name=(
-                c.patient.user.full_name
-                if c.patient and c.patient.user and c.patient.user.full_name
+                c.patient_name
+                if getattr(c, "patient_name", None)
                 else (
-                    c.patient.user.email
-                    if c.patient and c.patient.user and c.patient.user.email
-                    else (f"Member {c.patient.member_reference}" if c.patient and c.patient.member_reference else "Patient")
+                    c.patient.user.full_name
+                    if c.patient and c.patient.user and c.patient.user.full_name
+                    else (
+                        c.patient.user.email
+                        if c.patient and c.patient.user and c.patient.user.email
+                        else (f"Member {c.patient.member_reference}" if c.patient and c.patient.member_reference else "Patient")
+                    )
                 )
             ),
             policy_id=c.policy_id,
@@ -790,7 +795,7 @@ def get_my_assigned_cases(
             id=c.id,
             claim_reference=c.claim_reference,
             patient_id=c.patient_id,
-            patient_name=c.patient.user.full_name if c.patient and c.patient.user else None,
+            patient_name=getattr(c, "patient_name", None) or (c.patient.user.full_name if c.patient and c.patient.user else None),
             policy_id=c.policy_id,
             policy_number=c.policy.policy_number if c.policy else None,
             provider_id=c.provider_id,

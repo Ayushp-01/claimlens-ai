@@ -45,64 +45,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (initRef.current) return;
     initRef.current = true;
 
-    try {
-      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('claimlens_token') : null;
-      const storedUser = typeof window !== 'undefined' ? localStorage.getItem('claimlens_user') : null;
+    const initAuth = async () => {
+      try {
+        const storedToken = typeof window !== 'undefined' ? localStorage.getItem('claimlens_token') : null;
+        const storedUser = typeof window !== 'undefined' ? localStorage.getItem('claimlens_user') : null;
 
-      if (storedToken && storedUser) {
-        try {
-          const parsed = JSON.parse(storedUser);
-          setToken(storedToken);
-          setUser(parsed);
-          setCookie('claimlens_token', storedToken);
-          setCookie('claimlens_role', parsed.role);
-        } catch {
-          localStorage.removeItem('claimlens_user');
-          localStorage.removeItem('claimlens_token');
+        if (storedToken && storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser);
+            setToken(storedToken);
+            setUser(parsed);
+            setCookie('claimlens_token', storedToken);
+            setCookie('claimlens_role', parsed.role);
+
+            // Re-validate against backend canonical user to keep name & email strictly synchronized
+            authAPI
+              .me()
+              .then((freshUser) => {
+                if (freshUser && freshUser.id) {
+                  setUser(freshUser);
+                  localStorage.setItem('claimlens_user', JSON.stringify(freshUser));
+                  setCookie('claimlens_role', freshUser.role);
+                }
+              })
+              .catch((err) => {
+                if (err?.response?.status === 401) {
+                  localStorage.removeItem('claimlens_user');
+                  localStorage.removeItem('claimlens_token');
+                  deleteCookie('claimlens_token');
+                  deleteCookie('claimlens_role');
+                  setUser(null);
+                  setToken(null);
+                }
+              });
+          } catch {
+            localStorage.removeItem('claimlens_user');
+            localStorage.removeItem('claimlens_token');
+          }
+        } else if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true' && typeof window !== 'undefined') {
+          const path = window.location.pathname;
+          if (path.startsWith('/investigator')) {
+            try {
+              const res = await authAPI.login('investigator@demo.claimlens.ai', 'Demo@Invest1');
+              setToken(res.access_token);
+              setUser(res.user);
+              localStorage.setItem('claimlens_token', res.access_token);
+              localStorage.setItem('claimlens_user', JSON.stringify(res.user));
+              setCookie('claimlens_token', res.access_token);
+              setCookie('claimlens_role', res.user.role);
+            } catch (err) {
+              console.error('Demo investigator login failed:', err);
+            }
+          } else if (path.startsWith('/patient')) {
+            try {
+              const res = await authAPI.login('patient1@demo.claimlens.ai', 'Demo@Patient1');
+              setToken(res.access_token);
+              setUser(res.user);
+              localStorage.setItem('claimlens_token', res.access_token);
+              localStorage.setItem('claimlens_user', JSON.stringify(res.user));
+              setCookie('claimlens_token', res.access_token);
+              setCookie('claimlens_role', res.user.role);
+            } catch (err) {
+              console.error('Demo patient login failed:', err);
+            }
+          }
         }
-      } else if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true' && typeof window !== 'undefined') {
-        // In demo mode, if the user directly accesses an investigator or patient route,
-        // provision the demo session immediately to prevent unauthenticated flickering.
-        const path = window.location.pathname;
-        if (path.startsWith('/investigator')) {
-          const demoInvUser: User = {
-            id: 'usr-inv-01',
-            name: 'Vikram Rathore',
-            email: 'investigator@demo.claimlens.ai',
-            role: 'investigator',
-            phone: '+91 98201 12233',
-            address: 'Mumbai, Maharashtra',
-          };
-          const fallbackToken = 'demo-investigator-session-token';
-          setToken(fallbackToken);
-          setUser(demoInvUser);
-          localStorage.setItem('claimlens_token', fallbackToken);
-          localStorage.setItem('claimlens_user', JSON.stringify(demoInvUser));
-          setCookie('claimlens_token', fallbackToken);
-          setCookie('claimlens_role', 'investigator');
-        } else if (path.startsWith('/patient')) {
-          const demoPatUser: User = {
-            id: 'usr-pat-01',
-            name: 'Aarav Sharma',
-            email: 'patient1@demo.claimlens.ai',
-            role: 'patient',
-            phone: '+91 98201 12233',
-            address: 'Mumbai, Maharashtra',
-          };
-          const fallbackToken = 'demo-patient-session-token';
-          setToken(fallbackToken);
-          setUser(demoPatUser);
-          localStorage.setItem('claimlens_token', fallbackToken);
-          localStorage.setItem('claimlens_user', JSON.stringify(demoPatUser));
-          setCookie('claimlens_token', fallbackToken);
-          setCookie('claimlens_role', 'patient');
-        }
+      } catch (e) {
+        console.error('Failed to load user session', e);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (e) {
-      console.error('Failed to load user session', e);
-    } finally {
-      setIsLoading(false);
-    }
+    };
+
+    initAuth();
   }, []);
 
   const login = async (email: string, password: string, overrideRole?: UserRole) => {
@@ -134,13 +149,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const registeredUser = await authAPI.register(data);
-      const mockToken = 'mock-jwt-token-' + Date.now();
-      setToken(mockToken);
-      setUser(registeredUser);
-      localStorage.setItem('claimlens_token', mockToken);
-      localStorage.setItem('claimlens_user', JSON.stringify(registeredUser));
-      setCookie('claimlens_token', mockToken);
-      setCookie('claimlens_role', registeredUser.role);
+      try {
+        const loginRes = await authAPI.login(data.email, data.password);
+        setToken(loginRes.access_token);
+        setUser(loginRes.user);
+        localStorage.setItem('claimlens_token', loginRes.access_token);
+        localStorage.setItem('claimlens_user', JSON.stringify(loginRes.user));
+        setCookie('claimlens_token', loginRes.access_token);
+        setCookie('claimlens_role', loginRes.user.role);
+      } catch {
+        setUser(registeredUser);
+      }
       router.push('/patient/dashboard');
     } finally {
       setIsLoading(false);

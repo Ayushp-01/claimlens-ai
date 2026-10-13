@@ -26,6 +26,7 @@ import { patientAPI } from '@/lib/api';
 import { Policy, ClaimSubmitData } from '@/types';
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
 import { useToast } from '@/components/ui/toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatINR, formatDate } from '@/lib/utils';
 
 interface LineItemForm {
@@ -39,11 +40,19 @@ interface LineItemForm {
 export default function NewClaimPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [patientName, setPatientName] = useState(user?.name || '');
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [selectedPolicyId, setSelectedPolicyId] = useState<string>('');
   const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
+
+  useEffect(() => {
+    if (user?.name && !patientName) {
+      setPatientName(user.name);
+    }
+  }, [user?.name]);
 
   // Step 2 state
   const [providerName, setProviderName] = useState('Apollo Hospitals Bannerghatta');
@@ -167,6 +176,10 @@ export default function NewClaimPage() {
   const validateStep = (step: number): boolean => {
     setErrorMsg('');
     if (step === 1) {
+      if (!patientName.trim()) {
+        setErrorMsg('Please enter the patient / claimant full name.');
+        return false;
+      }
       if (!selectedPolicy) {
         setErrorMsg('Please select an active insurance policy.');
         return false;
@@ -175,6 +188,10 @@ export default function NewClaimPage() {
     }
 
     if (step === 2) {
+      if (!patientName.trim()) {
+        setErrorMsg('Please enter the patient / claimant full name.');
+        return false;
+      }
       if (!providerName.trim()) {
         setErrorMsg('Provider/Hospital name is required.');
         return false;
@@ -243,6 +260,8 @@ export default function NewClaimPage() {
     setIsSubmitting(true);
     try {
       const payload: ClaimSubmitData = {
+        patientName: patientName.trim(),
+        patient_name: patientName.trim(),
         policyId: selectedPolicy?.id,
         policyNumber: selectedPolicy?.policyNumber || '',
         memberReference: selectedPolicy?.memberReference || '',
@@ -340,12 +359,26 @@ export default function NewClaimPage() {
       {currentStep === 1 && (
         <Card className="border-slate-200 shadow-xs">
           <CardHeader>
-            <CardTitle>Step 1: Select Insurance Policy</CardTitle>
+            <CardTitle>Step 1: Patient & Insurance Policy Details</CardTitle>
             <CardDescription>
-              Choose from your active healthcare insurance policies to verify eligible reimbursement limits.
+              Verify patient/claimant identity and select an active healthcare insurance policy.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="patientName">Patient / Claimant Full Name *</Label>
+              <Input
+                id="patientName"
+                value={patientName}
+                onChange={(e) => setPatientName(e.target.value)}
+                placeholder="e.g. Aarav Sharma"
+                className="h-11 text-sm font-medium"
+              />
+              <p className="text-2xs text-slate-500">
+                Name of the insured patient undergoing treatment as stated in medical records and hospital invoices.
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label>Active Insurance Schedule ({policies.length} Policies Available)</Label>
               <select
@@ -434,14 +467,25 @@ export default function NewClaimPage() {
             <CardDescription>Enter provider and hospital bill details.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="providerName">Hospital / Provider Name</Label>
-              <Input
-                id="providerName"
-                value={providerName}
-                onChange={(e) => setProviderName(e.target.value)}
-                placeholder="e.g. Apollo Hospitals Bannerghatta"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="patientNameStep2">Patient / Claimant Full Name *</Label>
+                <Input
+                  id="patientNameStep2"
+                  value={patientName}
+                  onChange={(e) => setPatientName(e.target.value)}
+                  placeholder="e.g. Aarav Sharma"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="providerName">Hospital / Provider Name *</Label>
+                <Input
+                  id="providerName"
+                  value={providerName}
+                  onChange={(e) => setProviderName(e.target.value)}
+                  placeholder="e.g. Apollo Hospitals Bannerghatta"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -844,7 +888,12 @@ export default function NewClaimPage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs">
+                <div>
+                  <span className="text-slate-500 block">Patient / Claimant:</span>
+                  <span className="font-semibold text-slate-900 truncate block">{patientName || user?.name || 'Patient'}</span>
+                  <span className="text-2xs text-slate-500 block">Insured Claimant</span>
+                </div>
                 <div>
                   <span className="text-slate-500 block">Policy & Insurer:</span>
                   <span className="font-semibold text-slate-900">{selectedPolicy?.insurerName}</span>

@@ -58,7 +58,22 @@ def get_patient_dashboard(
     settled_claims = len([c for c in claims if c.status == "settled"])
 
     total_claimed = sum([Decimal(str(c.total_claimed_amount)) for c in claims], Decimal("0.00"))
-    total_settled = sum([Decimal(str(c.total_claimed_amount)) for c in claims if c.status == "settled"], Decimal("0.00"))
+    total_approved = sum(
+        [
+            Decimal(str(c.approved_amount if c.approved_amount is not None else c.total_claimed_amount))
+            for c in claims
+            if c.status in ["approved", "partially_approved", "payment_processing", "settled"]
+        ],
+        Decimal("0.00"),
+    )
+    total_settled = sum(
+        [
+            Decimal(str(c.settled_amount if c.settled_amount is not None else (c.approved_amount or c.total_claimed_amount)))
+            for c in claims
+            if c.status == "settled"
+        ],
+        Decimal("0.00"),
+    )
 
     # Recent 5 claims
     recent = (
@@ -74,7 +89,7 @@ def get_patient_dashboard(
             id=c.id,
             claim_reference=c.claim_reference,
             patient_id=c.patient_id,
-            patient_name=current_user.full_name,
+            patient_name=getattr(c, "patient_name", None) or current_user.full_name,
             policy_id=c.policy_id,
             policy_number=c.policy.policy_number if c.policy else None,
             provider_id=c.provider_id,
@@ -104,6 +119,7 @@ def get_patient_dashboard(
         rejected_claims=rejected_claims,
         settled_claims=settled_claims,
         total_claimed_amount=total_claimed,
+        total_approved_amount=total_approved,
         total_settled_amount=total_settled,
         recent_claims=recent_items,
     )
@@ -139,7 +155,7 @@ def get_patient_claims(
             id=c.id,
             claim_reference=c.claim_reference,
             patient_id=c.patient_id,
-            patient_name=current_user.full_name,
+            patient_name=getattr(c, "patient_name", None) or current_user.full_name,
             policy_id=c.policy_id,
             policy_number=c.policy.policy_number if c.policy else None,
             provider_id=c.provider_id,

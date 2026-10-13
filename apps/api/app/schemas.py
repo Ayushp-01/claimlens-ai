@@ -420,6 +420,8 @@ class FalsePositiveRequest(BaseModel):
 # Claims Main Schemas
 # ---------------------------------------------------------
 class ClaimSubmit(BaseModel):
+    patient_name: Optional[str] = None
+    patientName: Optional[str] = None
     policy_id: Optional[str] = None
     policyId: Optional[str] = None
     policy_number: Optional[str] = None
@@ -449,6 +451,10 @@ class ClaimSubmit(BaseModel):
     @classmethod
     def normalize_claim_submit(cls, data: Any) -> Any:
         if isinstance(data, dict):
+            if not data.get("patient_name") and data.get("patientName"):
+                data["patient_name"] = data["patientName"]
+            elif not data.get("patientName") and data.get("patient_name"):
+                data["patientName"] = data["patient_name"]
             if not data.get("policy_id") and data.get("policyId"):
                 data["policy_id"] = data["policyId"]
             if not data.get("policy_number") and data.get("policyNumber"):
@@ -478,6 +484,7 @@ class ClaimResponse(BaseModel):
     id: str
     claim_reference: str
     patient_id: str
+    patient_name: Optional[str] = None
     policy_id: str
     provider_id: str
     treatment_date: date
@@ -615,6 +622,7 @@ class PatientDashboardStats(BaseModel):
     rejected_claims: int
     settled_claims: int
     total_claimed_amount: Decimal
+    total_approved_amount: Optional[Decimal] = Decimal("0.00")
     total_settled_amount: Decimal
     recent_claims: List[ClaimListItem]
 

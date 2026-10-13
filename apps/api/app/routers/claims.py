@@ -178,7 +178,11 @@ def format_claim_detail(claim: Claim, is_investigator: bool, db: Optional[Sessio
         id=claim.id,
         claim_reference=claim.claim_reference,
         patient_id=claim.patient_id,
-        patient_name=patient_user.full_name if patient_user else None,
+        patient_name=(
+            claim.patient_name
+            if getattr(claim, "patient_name", None)
+            else (patient_user.full_name if patient_user else None)
+        ),
         patient_phone=claim.patient.phone if claim.patient else None,
         patient_email=patient_user.email if patient_user else None,
         policy_id=claim.policy_id,
@@ -247,10 +251,18 @@ def submit_claim(
     # Generate reference
     ref = generate_claim_reference(db)
 
+    # Patient name resolution
+    submitted_patient_name = (
+        claim_in.patient_name.strip()
+        if (claim_in.patient_name and claim_in.patient_name.strip())
+        else (current_user.full_name if current_user and current_user.full_name else None)
+    )
+
     # Create Claim
     new_claim = Claim(
         claim_reference=ref,
         patient_id=patient_id,
+        patient_name=submitted_patient_name,
         policy_id=claim_in.policy_id,
         provider_id=claim_in.provider_id,
         treatment_date=claim_in.treatment_date,

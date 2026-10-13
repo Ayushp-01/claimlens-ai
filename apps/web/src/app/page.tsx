@@ -397,14 +397,14 @@ export default function LandingPage() {
                   onClick={() => handleQuickLaunch('investigator')}
                   className="bg-teal-600 hover:bg-teal-500 text-white text-xs"
                 >
-                  Login as Investigator (Dr. Rajesh)
+                  Login as Investigator (Vikram Rathore)
                 </Button>
                 <Button
                   size="sm"
                   onClick={() => handleQuickLaunch('admin')}
                   className="bg-indigo-700 hover:bg-indigo-600 text-white text-xs"
                 >
-                  Login as Admin (Ananya Iyer)
+                  Login as Admin (Anita Desai)
                 </Button>
               </div>
             </div>

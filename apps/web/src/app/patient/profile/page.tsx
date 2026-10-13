@@ -90,6 +90,7 @@ export default function PatientProfilePage() {
         address,
         dateOfBirth,
       });
+      setProfile(updated);
       // Synchronize auth state so navigation, sidebar, and headers update immediately
       updateUser({
         name: updated.name || name,

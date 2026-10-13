@@ -108,6 +108,7 @@ class Claim(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     claim_reference = Column(String(50), unique=True, index=True, nullable=False)  # CLM-YYYYMM-NNNN
     patient_id = Column(String(36), ForeignKey("patient_profiles.id"), nullable=False)
+    patient_name = Column(String(255), nullable=True)
     policy_id = Column(String(36), ForeignKey("insurance_policies.id"), nullable=False)
     provider_id = Column(String(36), ForeignKey("providers.id"), nullable=False)
     treatment_date = Column(Date, nullable=False)

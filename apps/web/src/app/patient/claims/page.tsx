@@ -152,6 +152,7 @@ export default function PatientClaimsPage() {
               <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
                 <tr>
                   <th className="px-6 py-3.5">Reference #</th>
+                  <th className="px-6 py-3.5">Patient / Claimant</th>
                   <th className="px-6 py-3.5">Provider / Hospital</th>
                   <th className="px-6 py-3.5">Treatment Date</th>
                   <th className="px-6 py-3.5">Claimed Amount</th>
@@ -171,6 +172,9 @@ export default function PatientClaimsPage() {
                       {claim.referenceNumber}
                     </td>
                     <td className="px-6 py-4 font-medium text-slate-900">
+                      {claim.patientName}
+                    </td>
+                    <td className="px-6 py-4 text-slate-700">
                       {claim.providerName}
                     </td>
                     <td className="px-6 py-4 text-slate-600">
