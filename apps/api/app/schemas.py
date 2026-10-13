@@ -34,8 +34,35 @@ class UserCreate(UserBase):
 
 
 class UserLogin(BaseModel):
-    username_or_email: str
+    username_or_email: Optional[str] = None
+    email: Optional[str] = None
+    username: Optional[str] = None
     password: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_login_identifier(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            identifier = (
+                data.get("username_or_email")
+                or data.get("email")
+                or data.get("username")
+            )
+            if identifier:
+                data["username_or_email"] = str(identifier).strip()
+        return data
+
+    @model_validator(mode="after")
+    def validate_identifier_present(self) -> "UserLogin":
+        ident = (self.username_or_email or self.email or self.username or "").strip()
+        if not ident:
+            raise ValueError("Must provide username_or_email, email, or username.")
+        self.username_or_email = ident
+        return self
+
+    def get_identifier(self) -> str:
+        """Helper to get resolved login identifier."""
+        return (self.username_or_email or self.email or self.username or "").strip()
 
 
 class UserUpdate(BaseModel):

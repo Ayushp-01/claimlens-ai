@@ -95,7 +95,12 @@ export const authAPI = {
   async login(email: string, password: string): Promise<{ access_token: string; user: User }> {
     return executeApiCall(
       async () => {
-        const res = await apiClient.post('/auth/login', { username_or_email: email, password });
+        const res = await apiClient.post('/auth/login', {
+          username_or_email: email,
+          email: email,
+          username: email,
+          password,
+        });
         const u = res.data?.user || {};
         const mappedUser: User = {
           id: u.id,
@@ -118,7 +123,7 @@ export const authAPI = {
         const role = email.includes('admin') ? 'admin' : isInvestigator ? 'investigator' : 'patient';
         const user: User = {
           id: isInvestigator ? 'usr-inv-01' : 'usr-pat-01',
-          name: isInvestigator ? 'Vikram Rathore' : 'Priya Sharma',
+          name: isInvestigator ? 'Vikram Rathore' : 'Aarav Sharma',
           email,
           role,
           phone: '+91 98765 43210',

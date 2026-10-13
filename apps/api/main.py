@@ -60,20 +60,17 @@ origins = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
     "http://127.0.0.1:5173",
-    "https://claimlens-ai-one.vercel.app",
-    "https://claimlens-ai.vercel.app",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include API Routers under /api
+# Include API Routers under /api prefix
 app.include_router(auth.router, prefix="/api")
 app.include_router(claims.router, prefix="/api")
 app.include_router(patient.router, prefix="/api")
@@ -83,13 +80,6 @@ app.include_router(notifications.router, prefix="/api")
 app.include_router(audit.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 
-# Include API Routers at root (handles calls without /api)
-app.include_router(auth.router)
-app.include_router(claims.router)
-app.include_router(patient.router)
-app.include_router(investigator.router)
-app.include_router(analytics.router)
-app.include_router(notifications.router)
 
 # Exception Handlers
 @app.exception_handler(StarletteHTTPException)

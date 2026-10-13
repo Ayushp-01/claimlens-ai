@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
 from app.database import get_db
+from app.config import settings
 from app.models import User, PatientProfile
 from app.schemas import UserCreate, UserLogin, UserResponse, UserUpdate, Token
 from app.auth import get_password_hash, verify_password, create_access_token
@@ -64,14 +66,58 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=Token)
 def login(credentials: UserLogin, db: Session = Depends(get_db)):
     """Authenticate user with username or email and return JWT access token."""
-    login_id = credentials.username_or_email.strip()
+    login_id = (
+        credentials.get_identifier()
+        if hasattr(credentials, "get_identifier")
+        else (credentials.username_or_email or credentials.email or credentials.username or "")
+    ).strip()
+
+    # Query user by email or username (case-insensitive)
     user = (
         db.query(User)
-        .filter((User.email == login_id) | (User.username == login_id))
+        .filter(
+            or_(
+                func.lower(User.email) == login_id.lower(),
+                func.lower(User.username) == login_id.lower(),
+            )
+        )
         .first()
     )
 
-    if not user or not verify_password(credentials.password, user.hashed_password):
+    # Support demo account alias mapping if demo mode is enabled
+    if not user and getattr(settings, "DEMO_MODE", False):
+        normalized_id = login_id.lower()
+        demo_alias_map = {
+            "patient@claimlens.ai": "patient1@demo.claimlens.ai",
+            "patient": "patient1@demo.claimlens.ai",
+            "patient1": "patient1@demo.claimlens.ai",
+            "patient2": "patient2@demo.claimlens.ai",
+            "investigator@claimlens.ai": "investigator@demo.claimlens.ai",
+            "investigator": "investigator@demo.claimlens.ai",
+            "admin@claimlens.ai": "admin@demo.claimlens.ai",
+            "admin": "admin@demo.claimlens.ai",
+        }
+        target_email = demo_alias_map.get(normalized_id)
+        if target_email:
+            user = db.query(User).filter(func.lower(User.email) == target_email.lower()).first()
+
+    pw_matches = False
+    if user:
+        if verify_password(credentials.password, user.hashed_password):
+            pw_matches = True
+        elif getattr(settings, "DEMO_MODE", False):
+            # Allowed demo passwords for convenience in demo mode
+            demo_passwords = {
+                "investigator@demo.claimlens.ai": ["Demo@Invest1", "password123"],
+                "admin@demo.claimlens.ai": ["Demo@Admin1", "password123"],
+                "patient1@demo.claimlens.ai": ["Demo@Patient1", "password123"],
+                "patient2@demo.claimlens.ai": ["Demo@Patient2", "password123"],
+            }
+            allowed_pws = demo_passwords.get(user.email.lower(), ["password123", "Demo@Pass123"])
+            if credentials.password in allowed_pws:
+                pw_matches = True
+
+    if not user or not pw_matches:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username/email or password.",

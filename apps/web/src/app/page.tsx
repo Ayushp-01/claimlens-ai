@@ -390,7 +390,7 @@ export default function LandingPage() {
                   onClick={() => handleQuickLaunch('patient')}
                   className="bg-navy-700 hover:bg-navy-600 text-white text-xs"
                 >
-                  Login as Patient (Priya Sharma)
+                  Login as Patient (Aarav Sharma)
                 </Button>
                 <Button
                   size="sm"

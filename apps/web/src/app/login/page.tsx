@@ -46,18 +46,20 @@ function LoginForm() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: selectedRole === 'patient' ? 'patient@claimlens.ai' : 'investigator@claimlens.ai',
-      password: 'password123',
+      email: selectedRole === 'patient' ? 'patient1@demo.claimlens.ai' : 'investigator@demo.claimlens.ai',
+      password: selectedRole === 'patient' ? 'Demo@Patient1' : 'Demo@Invest1',
     },
   });
 
   useEffect(() => {
     if (initialRoleParam === 'investigator') {
       setSelectedRole('investigator');
-      setValue('email', 'investigator@claimlens.ai');
+      setValue('email', 'investigator@demo.claimlens.ai');
+      setValue('password', 'Demo@Invest1');
     } else if (initialRoleParam === 'patient') {
       setSelectedRole('patient');
-      setValue('email', 'patient@claimlens.ai');
+      setValue('email', 'patient1@demo.claimlens.ai');
+      setValue('password', 'Demo@Patient1');
     }
   }, [initialRoleParam, setValue]);
 
@@ -65,23 +67,26 @@ function LoginForm() {
     const newRole = role as UserRole;
     setSelectedRole(newRole);
     if (newRole === 'patient') {
-      setValue('email', 'patient@claimlens.ai');
+      setValue('email', 'patient1@demo.claimlens.ai');
+      setValue('password', 'Demo@Patient1');
     } else {
-      setValue('email', 'investigator@claimlens.ai');
+      setValue('email', 'investigator@demo.claimlens.ai');
+      setValue('password', 'Demo@Invest1');
     }
-    setValue('password', 'password123');
   };
 
   const handleQuickFill = (role: UserRole) => {
     setSelectedRole(role);
     if (role === 'patient') {
-      setValue('email', 'patient@claimlens.ai');
+      setValue('email', 'patient1@demo.claimlens.ai');
+      setValue('password', 'Demo@Patient1');
     } else if (role === 'investigator') {
-      setValue('email', 'investigator@claimlens.ai');
+      setValue('email', 'investigator@demo.claimlens.ai');
+      setValue('password', 'Demo@Invest1');
     } else if (role === 'admin') {
-      setValue('email', 'admin@claimlens.ai');
+      setValue('email', 'admin@demo.claimlens.ai');
+      setValue('password', 'Demo@Admin1');
     }
-    setValue('password', 'password123');
     toast({
       title: `Loaded ${role} credentials`,
       description: 'Click "Sign In" to enter.',
@@ -161,7 +166,7 @@ function LoginForm() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="name@claimlens.ai"
+                  placeholder={selectedRole === 'patient' ? 'patient1@demo.claimlens.ai' : 'investigator@demo.claimlens.ai'}
                   {...register('email')}
                   className={errors.email ? 'border-red-500' : ''}
                 />
@@ -173,7 +178,7 @@ function LoginForm() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
-                  <span className="text-xs text-slate-500">demo: password123</span>
+                  <span className="text-xs text-slate-500">demo: {selectedRole === 'patient' ? 'Demo@Patient1' : 'Demo@Invest1'}</span>
                 </div>
                 <Input
                   id="password"
